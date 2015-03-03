@@ -1,0 +1,2 @@
+formats = ["WAV"]
+steganomethods = ["LSB"]
