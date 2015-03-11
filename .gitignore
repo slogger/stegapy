@@ -2,3 +2,4 @@ docs/
 *.pyc
 __pycache__/
 .svnignore
+venv/

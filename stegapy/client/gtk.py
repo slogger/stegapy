@@ -5,11 +5,11 @@
 Copyright 2014 Maxim Syrykh
 """
 
-from gi.repository import Gtk
+from gi.repository import Gtk, GObject
 from stegapy.parsers.extra_file import ExtraFile
 from stegapy.models.container import BaseContainer
 from stegapy.errors import ContainerError
-import stegapy.config as config
+from stegapy import config
 
 
 class Window(Gtk.Window):
@@ -33,7 +33,7 @@ class Window(Gtk.Window):
         row.add(hbox)
         label = Gtk.Label("Container format", xalign=0)
         format_store = Gtk.ListStore(str)
-        for f in config.formats:
+        for f in config['formats']:
             format_store.append([f])
         combo = Gtk.ComboBox.new_with_model(format_store)
         combo.connect("changed", self.on_format_changed)
@@ -74,7 +74,7 @@ class Window(Gtk.Window):
         row.add(hbox)
         label = Gtk.Label("Steganography method", xalign=0)
         steganomethod_store = Gtk.ListStore(str)
-        for steganomethod in config.steganomethods:
+        for steganomethod in config['steganomethods']:
             steganomethod_store.append([steganomethod])
         combo = Gtk.ComboBox.new_with_model(steganomethod_store)
         combo.connect("changed", self.on_steganomethod_changed)
@@ -142,7 +142,7 @@ class Window(Gtk.Window):
         row.add(hbox)
         label = Gtk.Label("Container format", xalign=0)
         format_store = Gtk.ListStore(str)
-        for f in config.formats:
+        for f in config['formats']:
             format_store.append([f])
         combo = Gtk.ComboBox.new_with_model(format_store)
         combo.connect("changed", self.on_format_changed)
@@ -183,7 +183,7 @@ class Window(Gtk.Window):
         row.add(hbox)
         label = Gtk.Label("Steganography method", xalign=0)
         steganomethod_store = Gtk.ListStore(str)
-        for steganomethod in config.steganomethods:
+        for steganomethod in config['steganomethods']:
             steganomethod_store.append([steganomethod])
         combo = Gtk.ComboBox.new_with_model(steganomethod_store)
         combo.connect("changed", self.on_steganomethod_changed)
@@ -289,11 +289,13 @@ class Window(Gtk.Window):
                     title.set_text('...%s' % (dialog.get_filename()[-20:]))
                 else:
                     title.set_text(dialog.get_filename())
+                dialog.destroy()
             except ContainerError:
+                dialog.destroy()
                 self.push_message("Unsupport file")
         elif response == Gtk.ResponseType.CANCEL:
+            dialog.destroy()
             self.push_message("Please, choose container file")
-        dialog.destroy()
 
     def on_msg_choosed(self, widget, title):
         """Open dialog to choose message"""
@@ -311,34 +313,15 @@ class Window(Gtk.Window):
                 title.set_text('...%s' % (dialog.get_filename()[-20:]))
             else:
                 title.set_text(dialog.get_filename())
+            dialog.destroy()
         elif response == Gtk.ResponseType.CANCEL:
+            dialog.destroy()
             self.push_message("Please, choose message file")
-        dialog.destroy()
 
     def on_hide(self, widget):
         """Hide information"""
-        dialog = Gtk.FileChooserDialog("Please save a file", self,
-                                       Gtk.FileChooserAction.SAVE,
-                                       (Gtk.STOCK_CANCEL,
-                                        Gtk.ResponseType.CANCEL,
-                                        Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            filename = dialog.get_filename()
-            output_data = self.stegtool(self.original).encode(self.message)
-            out_code = self.Container(filename, read=False).write(output_data)
-        elif response == Gtk.ResponseType.CANCEL:
-            print("Cancel clicked")
-
-        dialog.destroy()
-        if out_code == 'OK':
-            self.push_message("OK", "Success hide")
-
-    def on_unhide(self, widget):
-        """Unhide information"""
-        hide_content = self.stegtool(self.original).decode()
-        if len(hide_content) != 0:
-            dialog = Gtk.FileChooserDialog("Please save a file", self,
+        if hasattr(self, "original") and hasattr(self, "message"):
+            dialog = Gtk.FileChooserDialog("Please, save a file", self,
                                            Gtk.FileChooserAction.SAVE,
                                            (Gtk.STOCK_CANCEL,
                                             Gtk.ResponseType.CANCEL,
@@ -347,12 +330,51 @@ class Window(Gtk.Window):
             response = dialog.run()
             if response == Gtk.ResponseType.OK:
                 filename = dialog.get_filename()
-                out_code = BaseContainer(filename).write(hide_content)
+                dialog.destroy()
+                # progressbar = ProgressBarWindow()
+                # self.push_message("Please walt", 'Work on!')
+                output_data = self.stegtool(self.original).encode(self.message)
+                opres = self.Container(filename, read=False).write(output_data)
+                if opres == 'OK':
+                    self.push_message("Success hide", opres)
+                else:
+                    self.push_message("Something go wrong")
+            elif response == Gtk.ResponseType.CANCEL:
+                dialog.destroy()
+                self.push_message("Please, save file")
         else:
-            self.push_message('Message not found')
-        dialog.destroy()
-        if out_code == 'OK':
-            self.push_message("OK", "Success unhide")
+            self.push_message("You should choose container and message files")
+
+    def on_unhide(self, widget):
+        """Unhide information"""
+        if hasattr(self, "original"):
+            # self.push_message("Please walt", "Start unhiding!")
+            dialog = Gtk.FileChooserDialog("Please save a file", self,
+                                           Gtk.FileChooserAction.SAVE,
+                                           (Gtk.STOCK_CANCEL,
+                                            Gtk.ResponseType.CANCEL,
+                                            Gtk.STOCK_SAVE,
+                                            Gtk.ResponseType.OK))
+            response = dialog.run()
+
+            if response == Gtk.ResponseType.OK:
+                # TODO: add progress bar
+                filename = dialog.get_filename()
+                dialog.destroy()
+                hide_content = self.stegtool(self.original).decode()
+                if len(hide_content) != 0:
+                    opcode = BaseContainer(filename).write(hide_content)
+                    if opcode == 'OK':
+                        self.push_message("Success unhide", "OK")
+                    else:
+                        self.push_message("Something go wrong")
+                else:
+                    self.push_message('Message not found')
+            elif response == Gtk.ResponseType.CANCEL:
+                dialog.destroy()
+                self.push_message("Please, save file")
+        else:
+            self.push_message("You should choose container file")
 
     def on_show_info(self, widget):
         """Diving into container and show info about his"""
@@ -366,6 +388,9 @@ class Window(Gtk.Window):
         if response == Gtk.ResponseType.OK:
             params = self.Container(dialog.get_filename(),
                                     valid=False).get_params()
+        elif response == Gtk.ResponseType.CANCEL:
+            dialog.destroy()
+            self.push_message("Please, choose file")
 
         dialog.destroy()
         info = InfoDialog(self, params)
@@ -379,7 +404,7 @@ class Window(Gtk.Window):
         dialog.format_secondary_text(
             message)
         dialog.run()
-
+        # Это надо что-бы оно закрывалось
         dialog.destroy()
 
     def add_wav_filters(self, dialog):
@@ -426,9 +451,3 @@ class InfoDialog(Gtk.Dialog):
         box = self.get_content_area()
         box.add(treeview)
         self.show_all()
-
-# View window
-win = Window()
-win.connect("delete-event", Gtk.main_quit)
-win.show_all()
-Gtk.main()

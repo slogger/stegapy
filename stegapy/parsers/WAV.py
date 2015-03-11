@@ -24,9 +24,8 @@ class WAV(BaseContainer):
         if read:
             self.file_read()
             self.read_param()
-
-        if valid:
-            self.isValid()
+            if valid:
+                self.isValid()
 
     # We only support this WAV formats
     audio_format_table = {
