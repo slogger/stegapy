@@ -12,14 +12,12 @@ class BaseContainer:
 
     def read(self):
         """Abstract read method"""
-        pass
+        raise NotImplementedError
 
     def write(self, content):
         """File write method"""
         with open(self.name, 'wb') as file:
-            self.file_o = file
             if type(content) != bytes:
                 content = bytes(content)
-            self.file_o.write(content)
-
-        return "OK"
+            out = file.write(content)
+        return out

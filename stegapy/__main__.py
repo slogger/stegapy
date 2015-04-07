@@ -31,13 +31,15 @@ def hide_mode(args):
         stegtool = getattr(_stegtool, args.method)
     except ImportError as e:
         exit("Module %s not found" % e.args[0][16:])
-
-    source = Container(args.source)
-    message = ExtraFile(args.message)
-    output_data = stegtool(source).encode(message)
-    output_file = Container(args.destination,
-                            read=False,
-                            valid=False).write(output_data)
+    try:
+        source = Container(args.source)
+        message = ExtraFile(args.message)
+        output_data = stegtool(source).encode(message)
+        output_file = Container(args.destination,
+                                read=False,
+                                valid=False).write(output_data)
+    except Exception as e:
+        exit(e)
 
 
 def unhide_mode(args):
@@ -51,10 +53,21 @@ def unhide_mode(args):
     except ImportError as e:
         exit("Module %s not found" % e.args[0][16:])
 
-    input_data = Container(args.source)
-    hide_content = stegtool(input_data).decode()
-    output_file = BaseContainer(args.destination).write(hide_content)
+    try:
+        input_data = Container(args.source)
+        hide_content = stegtool(input_data).decode()
+        output_file = BaseContainer(args.destination).write(hide_content)
+    except Exception as e:
+        exit(e)
 
+
+def hashsum_mode(args):
+    try:
+        from stegapy.md5 import md5
+        with open(args.source, 'rb') as file:
+            print(md5(file.read()))
+    except Exception as e:
+        exit(e)
 
 # Run the script.
 if __name__ == '__main__':
@@ -68,6 +81,11 @@ if __name__ == '__main__':
 
     gui = subparser.add_parser("gui", help="launch GTK3+ Gui")
     gui.set_defaults(func=gui_mode)
+
+    hashsum = subparser.add_parser("hashsum")
+    hashsum.set_defaults(func=hashsum_mode)
+    hashsum.add_argument('source',
+                         help='path to file')
 
     hide = subparser.add_parser("hide")
     hide.add_argument('source',

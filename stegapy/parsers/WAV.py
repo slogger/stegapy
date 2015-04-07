@@ -25,7 +25,7 @@ class WAV(BaseContainer):
             self.file_read()
             self.read_param()
             if valid:
-                self.isValid()
+                self.is_valid()
 
     # We only support this WAV formats
     audio_format_table = {
@@ -39,8 +39,10 @@ class WAV(BaseContainer):
                 self.content = f.read()
         except FileNotFoundError:
             raise InputError("File not found")
+        except Exception:
+            raise InputError()
 
-    def isValid(self):
+    def is_valid(self):
         """Validate function"""
         if self.chunk_id != b'RIFF':
             raise ContainerError('chunk_id should be RIFF!')
@@ -172,8 +174,3 @@ class WAV(BaseContainer):
     def read(self, offset=0):
         """Return data content without header"""
         return list(self.content[44+offset:])
-
-
-# We should import this module to use, else show documentation
-if __name__ == '__main__':
-    print(__doc__)

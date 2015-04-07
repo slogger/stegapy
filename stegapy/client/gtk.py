@@ -22,7 +22,7 @@ class Window(Gtk.Window):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.add(vbox)
 
-        ## HIDE SECTION
+        # HIDE SECTION
 
         hide_options = Gtk.ListBox()
         hide_options.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -308,11 +308,14 @@ class Window(Gtk.Window):
 
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            self.message = ExtraFile(dialog.get_filename())
-            if len(dialog.get_filename()) > 17:
-                title.set_text('...%s' % (dialog.get_filename()[-20:]))
-            else:
-                title.set_text(dialog.get_filename())
+            try:
+                self.message = ExtraFile(dialog.get_filename())
+                if len(dialog.get_filename()) > 17:
+                    title.set_text('...%s' % (dialog.get_filename()[-20:]))
+                else:
+                    title.set_text(dialog.get_filename())
+            except PermissionError:
+                self.push_message("Permission denied")
             dialog.destroy()
         elif response == Gtk.ResponseType.CANCEL:
             dialog.destroy()
@@ -333,11 +336,12 @@ class Window(Gtk.Window):
                 dialog.destroy()
                 # progressbar = ProgressBarWindow()
                 # self.push_message("Please walt", 'Work on!')
-                output_data = self.stegtool(self.original).encode(self.message)
-                opres = self.Container(filename, read=False).write(output_data)
-                if opres == 'OK':
-                    self.push_message("Success hide", opres)
-                else:
+                try:
+                    output_data = self.stegtool(self.original).encode(self.message)
+                    opres = self.Container(filename, read=False).write(output_data)
+                    if opres == 'OK':
+                        self.push_message("Success hide", opres)
+                except Exception:
                     self.push_message("Something go wrong")
             elif response == Gtk.ResponseType.CANCEL:
                 dialog.destroy()
@@ -361,15 +365,18 @@ class Window(Gtk.Window):
                 # TODO: add progress bar
                 filename = dialog.get_filename()
                 dialog.destroy()
-                hide_content = self.stegtool(self.original).decode()
-                if len(hide_content) != 0:
-                    opcode = BaseContainer(filename).write(hide_content)
-                    if opcode == 'OK':
-                        self.push_message("Success unhide", "OK")
+                try:
+                    hide_content = self.stegtool(self.original).decode()
+                    if len(hide_content) != 0:
+                        opcode = BaseContainer(filename).write(hide_content)
+                        if opcode == 'OK':
+                            self.push_message("Success unhide", "OK")
+                        else:
+                            self.push_message("Something go wrong")
                     else:
-                        self.push_message("Something go wrong")
-                else:
-                    self.push_message('Message not found')
+                        self.push_message('Message not found')
+                except ContainerError as e:
+                    self.push_message(str(e))
             elif response == Gtk.ResponseType.CANCEL:
                 dialog.destroy()
                 self.push_message("Please, save file")

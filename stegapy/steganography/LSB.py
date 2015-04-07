@@ -1,4 +1,6 @@
 from stegapy.models.stega import BaseSteganography
+from stegapy.md5 import md5
+from stegapy.errors import ContainerError
 import struct
 
 
@@ -46,18 +48,36 @@ class LSB(BaseSteganography):
 
     def encode(self, msg):
         """Encode method"""
+        if len(self.container.content[44:]) // 8 < msg.length:
+            raise OverflowError("Too much data")
+        checksum = md5(msg.read())
+        checksum = struct.unpack(
+            "{}b".format(len(checksum)), bytes(checksum, 'UTF-8'))
         msg_bits = self.__to_bits(msg.read())
         # Preparing key (length of message)
         key = struct.pack('I', int(len(msg_bits)/8))
         key = self.__to_bits(key)
-        header_samples = [byte for byte in self.container.content[:44]]
+        header_samples = list(self.container.content[:44])
         # Include key in container data
         key_samples = self.__samples_encoding(key, limit=len(key))
+        # Prepare checksum
+        checksum_bits = self.__to_bits(checksum)
+        checksum_samples = self.__samples_encoding(
+            checksum_bits,
+            len(key_samples),
+            len(checksum_bits)+len(key_samples)
+            )
         # Include message in container data
-        encoded_samples = self.__samples_encoding(msg_bits, len(key_samples),
-                                                  len(msg_bits))
+        encoded_samples = self.__samples_encoding(
+            msg_bits,
+            len(key_samples) + len(checksum_samples),
+            len(msg_bits))
         # Prepare contaminated data
-        out_samples = bytes(header_samples + key_samples + encoded_samples)
+        out_samples = bytes(
+            header_samples +
+            key_samples +
+            checksum_samples +
+            encoded_samples)
         out_samples = out_samples + self.container.content[len(out_samples):]
 
         return out_samples
@@ -65,14 +85,25 @@ class LSB(BaseSteganography):
     def decode(self):
         """Decode method"""
         samples = self.container.read()
+        key_length = 32
+        checksum_length = 288
         # 32 is size of key
-        key_samples = samples[:32]
-        content_samples = samples[32:]
+        key_samples = samples[:key_length]
+        checksum_samples = samples[key_length:checksum_length]
+        content_samples = samples[checksum_length+key_length:]
 
         # Reach key data
         key = self.__samples_decoding(key_samples, 4)
         key = int(struct.unpack('I', key)[0])
 
+        # Get original checksum
+        origin_checksum = self.__samples_decoding(checksum_samples, 32)
+        origin_checksum = str(origin_checksum, 'UTF-8')
+
         # Reach message data
         content_data = self.__samples_decoding(content_samples, key)
-        return content_data
+        checksum = md5(content_data)
+        if checksum == origin_checksum:
+            return content_data
+        else:
+            raise ContainerError("Container is broken")
