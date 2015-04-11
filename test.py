@@ -55,7 +55,7 @@ class TestRIFFWav(unittest.TestCase):
         self.assertEqual(_id, self.test_unit.chunk_id)
 
     def test_valid(self):
-        self.assertTrue(self.test_unit.isValid())
+        self.assertTrue(self.test_unit.is_valid())
 
 
 class TestNotRIFFWav(unittest.TestCase):

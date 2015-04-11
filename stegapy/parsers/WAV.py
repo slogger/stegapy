@@ -173,4 +173,4 @@ class WAV(BaseContainer):
 
     def read(self, offset=0):
         """Return data content without header"""
-        return list(self.content[44+offset:])
+        return list(self.content[500+offset:])

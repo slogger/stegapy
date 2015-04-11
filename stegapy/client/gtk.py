@@ -290,9 +290,9 @@ class Window(Gtk.Window):
                 else:
                     title.set_text(dialog.get_filename())
                 dialog.destroy()
-            except ContainerError:
+            except ContainerError as e:
                 dialog.destroy()
-                self.push_message("Unsupport file")
+                self.push_message(str(e))
         elif response == Gtk.ResponseType.CANCEL:
             dialog.destroy()
             self.push_message("Please, choose container file")

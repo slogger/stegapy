@@ -2,6 +2,7 @@ from stegapy.models.stega import BaseSteganography
 from stegapy.md5 import md5
 from stegapy.errors import ContainerError
 import struct
+import gzip
 
 
 class LSB(BaseSteganography):
@@ -48,49 +49,53 @@ class LSB(BaseSteganography):
 
     def encode(self, msg):
         """Encode method"""
-        if len(self.container.content[44:]) // 8 < msg.length:
+        if len(self.container.read()) // 8 < msg.length:
             raise OverflowError("Too much data")
         checksum = md5(msg.read())
         checksum = struct.unpack(
             "{}b".format(len(checksum)), bytes(checksum, 'UTF-8'))
         msg_bits = self.__to_bits(msg.read())
+
         # Preparing key (length of message)
         key = struct.pack('I', int(len(msg_bits)/8))
         key = self.__to_bits(key)
-        header_samples = list(self.container.content[:44])
+        header_samples = list(self.container.content[:500])
+
         # Include key in container data
         key_samples = self.__samples_encoding(key, limit=len(key))
+
         # Prepare checksum
-        checksum_bits = self.__to_bits(checksum)
+        checksum_bits = self.__to_bits(bytes(checksum))
         checksum_samples = self.__samples_encoding(
             checksum_bits,
             len(key_samples),
             len(checksum_bits)+len(key_samples)
             )
+
         # Include message in container data
         encoded_samples = self.__samples_encoding(
             msg_bits,
             len(key_samples) + len(checksum_samples),
             len(msg_bits))
+
         # Prepare contaminated data
         out_samples = bytes(
             header_samples +
             key_samples +
             checksum_samples +
             encoded_samples)
-        out_samples = out_samples + self.container.content[len(out_samples):]
-
+        out_samples += self.container.content[len(out_samples):]
         return out_samples
 
     def decode(self):
         """Decode method"""
         samples = self.container.read()
-        key_length = 32
-        checksum_length = 288
-        # 32 is size of key
-        key_samples = samples[:key_length]
-        checksum_samples = samples[key_length:checksum_length]
-        content_samples = samples[checksum_length+key_length:]
+        KEY_LENGTH = 32
+        CHECKSUM_LENGTH = 288
+
+        key_samples = samples[:KEY_LENGTH]
+        checksum_samples = samples[KEY_LENGTH:CHECKSUM_LENGTH]
+        content_samples = samples[CHECKSUM_LENGTH+KEY_LENGTH:]
 
         # Reach key data
         key = self.__samples_decoding(key_samples, 4)
@@ -102,8 +107,9 @@ class LSB(BaseSteganography):
 
         # Reach message data
         content_data = self.__samples_decoding(content_samples, key)
+
         checksum = md5(content_data)
         if checksum == origin_checksum:
-            return content_data
+            return gzip.decompress(content_data)
         else:
             raise ContainerError("Container is broken")

@@ -6,6 +6,7 @@ Copyright 2014 Maxim Syrykh
 from stegapy.models.container import BaseContainer
 from stegapy.errors import InputError
 from stegapy.errors import ContainerError
+import gzip
 
 
 class ExtraFile(BaseContainer):
@@ -24,7 +25,7 @@ class ExtraFile(BaseContainer):
         # Try opening file
         try:
             with open(path, "rb") as f:
-                self.content = f.read()
+                self.content = gzip.compress(f.read())
         except FileNotFoundError:
             raise InputError("File not found")
 
